@@ -1,404 +1,289 @@
 #!/usr/bin/env python3
 """
-Label Compliance Agent - Backend Server
-This server handles API calls to Claude and serves the HTML interface.
-Run with: export ANTHROPIC_API_KEY='sk-ant-...' && python server.py
+Label Compliance Agent V3 - Fixed Backend Server
+Better error handling and CORS support
 """
 
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from anthropic import Anthropic
 import os
+import sys
+
+# Check for API key first
+api_key = os.getenv('ANTHROPIC_API_KEY')
+if not api_key:
+    print("\n" + "="*70)
+    print("❌ ERROR: ANTHROPIC_API_KEY environment variable not set!")
+    print("="*70)
+    print("\nSet it with:")
+    print("  Mac/Linux: export ANTHROPIC_API_KEY='sk-ant-...'")
+    print("  Windows CMD: set ANTHROPIC_API_KEY=sk-ant-...")
+    print("  Windows PowerShell: $env:ANTHROPIC_API_KEY='sk-ant-...'")
+    print("\nThen run: python server.py")
+    print("="*70 + "\n")
+    sys.exit(1)
 
 app = Flask(__name__)
-CORS(app)
 
-# Initialize Anthropic client - gets API key from environment variable
+# Better CORS configuration
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
+
+# Initialize Anthropic
 try:
-    client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+    client = Anthropic(api_key=api_key)
 except Exception as e:
-    print(f"Error: Could not initialize Anthropic client. Make sure ANTHROPIC_API_KEY is set.")
-    print(f"Run: export ANTHROPIC_API_KEY='sk-ant-...'")
-    client = None
+    print(f"\n❌ Error initializing Anthropic: {str(e)}\n")
+    sys.exit(1)
 
 @app.route('/')
 def index():
     return '''<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Label Compliance Agent</title>
+    <title>Label Compliance Agent V3</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --primary: #0f172a;
-            --secondary: #1e293b;
-            --accent: #3b82f6;
-            --accent-light: #60a5fa;
-            --success: #10b981;
-            --error: #ef4444;
-            --text: #f1f5f9;
-            --text-muted: #cbd5e1;
-            --border: #334155;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #0d1629 50%, #1a2332 100%);
-            color: var(--text);
-            min-height: 100vh;
-        }
-
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        header { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); padding: 20px 0; margin-bottom: 40px; position: sticky; top: 0; z-index: 100; }
-        .header-content { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-        .logo { display: flex; align-items: center; gap: 12px; }
-        .logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
-        .logo-text h1 { font-size: 20px; font-weight: 700; }
-        .logo-text p { font-size: 12px; color: var(--text-muted); }
-        .status { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; font-size: 13px; color: var(--success); }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
-        @media (max-width: 1024px) { .grid { grid-template-columns: 1fr; } }
-        .card { background: rgba(30, 41, 59, 0.9); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 12px; padding: 30px; transition: all 0.3s ease; }
-        .card:hover { border-color: var(--accent); box-shadow: 0 0 30px rgba(59, 130, 246, 0.1); }
-        .card h2 { font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
-        .card-icon { width: 32px; height: 32px; background: rgba(59, 130, 246, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
-        textarea { width: 100%; padding: 12px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Monaco', 'Courier New', monospace; font-size: 13px; resize: vertical; min-height: 250px; transition: all 0.3s ease; line-height: 1.6; }
-        textarea:focus { outline: none; border-color: var(--accent); background: rgba(15, 23, 42, 0.8); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
-        button { padding: 12px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn-primary { background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%); color: white; width: 100%; }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3); }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-        .output-section { margin-top: 20px; }
-        .output-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--accent-light); display: flex; align-items: center; gap: 8px; }
-        .output-box { background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border); border-radius: 8px; padding: 20px; line-height: 1.8; font-size: 12px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; color: var(--text); letter-spacing: 0.3px; }
-        .output-box strong { font-weight: 700; color: #ffffff; }
-        .copy-btn { padding: 8px 14px; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 10px; transition: all 0.2s ease; }
-        .copy-btn:hover { background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 100%); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
-        .copy-btn:active { transform: translateY(0); }
-        .loader { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(59, 130, 246, 0.3); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .alert { padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; display: none; }
-        .alert.show { display: block; animation: slideDown 0.3s ease; }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        .alert-success { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--success); }
-        .alert-error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--error); }
-        .market-selector { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
-        .market-checkbox { display: flex; align-items: center; gap: 8px; padding: 10px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.3s ease; }
-        .market-checkbox:hover { border-color: var(--accent); }
-        .market-checkbox input { cursor: pointer; accent-color: var(--accent); }
-        .compliance-note { background: rgba(59, 130, 246, 0.1); border-left: 3px solid var(--accent); padding: 12px; border-radius: 6px; font-size: 12px; color: var(--text-muted); margin-top: 15px; }
-        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
-        .empty-state-icon { font-size: 48px; margin-bottom: 10px; }
-        footer { border-top: 1px solid var(--border); padding: 30px 0; text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 60px; }
-        a { color: var(--accent-light); text-decoration: none; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto; background: linear-gradient(135deg, #0f172a 0%, #0d1629 50%, #1a2332 100%); color: #f1f5f9; margin: 0; padding: 40px; text-align: center; }
+        .box { max-width: 600px; margin: 0 auto; background: rgba(16, 185, 129, 0.1); border: 2px solid #10b981; border-radius: 12px; padding: 30px; }
+        h1 { color: #34d399; font-size: 28px; margin: 0 0 10px 0; }
+        p { color: #cbd5e1; font-size: 14px; margin: 8px 0; }
+        .code { background: rgba(15, 23, 42, 0.9); padding: 12px; border-radius: 8px; border-left: 3px solid #10b981; font-family: monospace; font-size: 13px; margin: 15px 0; text-align: left; }
+        a { color: #34d399; text-decoration: none; font-weight: bold; }
         a:hover { text-decoration: underline; }
+        .success { color: #10b981; font-weight: bold; }
     </style>
 </head>
 <body>
-    <header>
-        <div class="container">
-            <div class="header-content">
-                <div class="logo">
-                    <div class="logo-icon">🏷️</div>
-                    <div class="logo-text">
-                        <h1>Label Compliance Agent</h1>
-                        <p>Switzerland (FSV) + EU (1169/2011)</p>
-                    </div>
-                </div>
-                <div class="status">
-                    <span>✓ Ready</span>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <div class="container">
-        <div id="alertContainer"></div>
-
-        <div class="grid">
-            <div class="card">
-                <h2><div class="card-icon">📝</div> Old Label Text</h2>
-                <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Paste your current label</p>
-
-                <div class="form-group">
-                    <label>Target Markets</label>
-                    <div class="market-selector">
-                        <label class="market-checkbox">
-                            <input type="checkbox" name="market" value="switzerland" checked>
-                            <span>🇨🇭 Switzerland</span>
-                        </label>
-                        <label class="market-checkbox">
-                            <input type="checkbox" name="market" value="eu" checked>
-                            <span>🇪🇺 EU</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Current Label Text</label>
-                    <textarea id="oldLabelText" placeholder="Paste your current label text here...">Savanna Cider
-Enthält Sulfite
-6% Alkoholgehalt
-Importeur: Lekker Roots
-Haberweidstrasse 4
-8610 Uster-CH</textarea>
-                </div>
-
-                <button class="btn-primary" onclick="updateLabel()" id="updateBtn">
-                    <span id="updateBtnText">Generate Compliant Label</span>
-                </button>
-
-                <div class="compliance-note">
-                    ℹ️ We'll generate properly formatted labels with all required elements, correct capitalization, and allergen declarations in CAPITALS.
-                </div>
-            </div>
-
-            <div class="card">
-                <h2><div class="card-icon">✅</div> Compliant Output</h2>
-                <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Your verified and formatted label</p>
-
-                <div id="outputContainer" style="display: none;">
-                    <div class="output-section" id="swissSection" style="display: none;">
-                        <div class="output-title">🇨🇭 Switzerland</div>
-                        <div class="output-box" id="swissOutput"></div>
-                        <button class="copy-btn" onclick="copyText('swissOutput')">Copy Swiss Label</button>
-                    </div>
-
-                    <div class="output-section" id="euSection" style="display: none;">
-                        <div class="output-title">🇪🇺 EU</div>
-                        <div class="output-box" id="euOutput"></div>
-                        <button class="copy-btn" onclick="copyText('euOutput')">Copy EU Label</button>
-                    </div>
-
-                    <div class="compliance-note" style="margin-top: 20px;">
-                        ✓ Ready to print. All mandatory elements included. Properly formatted with correct text styling and capitalization.
-                    </div>
-                </div>
-
-                <div id="emptyState" class="empty-state">
-                    <div class="empty-state-icon">📋</div>
-                    <p>Enter label text and click generate to see compliant output here</p>
-                </div>
-            </div>
-        </div>
+    <div class="box">
+        <h1>✅ Server Running!</h1>
+        <p class="success">Backend is ready at http://localhost:5000</p>
+        <p style="margin: 20px 0;">Open <strong>index.html</strong> in your browser</p>
+        <p style="color: #f59e0b; margin-top: 20px;">⚠️ Make sure you opened index.html from http://localhost:5000, not file:// path</p>
     </div>
-
-    <footer>
-        <p>⚠️ Always verify final labels with your legal team before printing.</p>
-        <p style="margin-top: 10px;">
-            <a href="https://www.blv.admin.ch" target="_blank">Switzerland FSV</a> • 
-            <a href="https://ec.europa.eu/food" target="_blank">EU Regulations</a>
-        </p>
-    </footer>
-
-    <script>
-        function formatLabelOutput(text) {
-            return text.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
-        }
-
-        async function updateLabel() {
-            const text = document.getElementById('oldLabelText').value.trim();
-            if (!text) {
-                showAlert('Please enter label text', 'error');
-                return;
-            }
-
-            const markets = getMarkets();
-            if (!markets.length) {
-                showAlert('Select at least one market', 'error');
-                return;
-            }
-
-            setLoading('updateBtn', true);
-
-            try {
-                if (markets.includes('switzerland')) {
-                    const swissResponse = await callBackend('/api/generate-swiss', { text });
-                    document.getElementById('swissOutput').innerHTML = formatLabelOutput(swissResponse);
-                    document.getElementById('swissSection').style.display = 'block';
-                }
-
-                if (markets.includes('eu')) {
-                    const euResponse = await callBackend('/api/generate-eu', { text });
-                    document.getElementById('euOutput').innerHTML = formatLabelOutput(euResponse);
-                    document.getElementById('euSection').style.display = 'block';
-                }
-
-                document.getElementById('emptyState').style.display = 'none';
-                document.getElementById('outputContainer').style.display = 'block';
-                showAlert('Label generated successfully!', 'success');
-            } catch (error) {
-                showAlert('Error: ' + error.message, 'error');
-            } finally {
-                setLoading('updateBtn', false);
-            }
-        }
-
-        async function callBackend(endpoint, data) {
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'API request failed');
-            }
-
-            const result = await response.json();
-            return result.output;
-        }
-
-        function getMarkets() {
-            return Array.from(document.querySelectorAll('input[name="market"]:checked')).map(el => el.value);
-        }
-
-        function setLoading(id, loading) {
-            const btn = document.getElementById(id);
-            const text = btn.querySelector('span');
-            btn.disabled = loading;
-            text.innerHTML = loading ? '<span class="loader"></span> Processing...' : 'Generate Compliant Label';
-        }
-
-        function showAlert(msg, type) {
-            const container = document.getElementById('alertContainer');
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type} show`;
-            alert.textContent = msg;
-            container.appendChild(alert);
-            setTimeout(() => {
-                alert.classList.remove('show');
-                setTimeout(() => alert.remove(), 300);
-            }, 4000);
-        }
-
-        function copyText(elementId) {
-            const element = document.getElementById(elementId);
-            if (!element) {
-                showAlert('Error: Output not found', 'error');
-                return;
-            }
-            
-            const text = element.textContent || element.innerText || '';
-            
-            if (!text) {
-                showAlert('Error: Nothing to copy', 'error');
-                return;
-            }
-            
-            navigator.clipboard.writeText(text).then(() => {
-                showAlert('✓ Copied to clipboard!', 'success');
-            }).catch((err) => {
-                showAlert('Failed to copy - try manual select', 'error');
-            });
-        }
-    </script>
 </body>
 </html>'''
 
-@app.route('/api/generate-swiss', methods=['POST'])
+@app.route('/api/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    return jsonify({'status': 'ok', 'message': 'Server is running'})
+
+@app.route('/api/generate-swiss', methods=['POST', 'OPTIONS'])
 def generate_swiss():
+    if request.method == 'OPTIONS':
+        return '', 204
+    
     try:
-        if not client:
-            return jsonify({'error': 'API not configured. Set ANTHROPIC_API_KEY environment variable.'}), 500
-            
         data = request.json
-        text = data.get('text', '')
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+            
+        text = data.get('text', '').strip()
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
         
-        prompt = f'''You are a Swiss beverage label compliance expert (FSV - Foodstuff Act).
+        prompt = f'''Generate a STICKER-READY Swiss beverage label from this text:
+{text}
 
-Current label: {text}
+REQUIREMENTS:
+- NO extra blank lines between sections
+- Minimal spacing (compact format)
+- Short, tight lines to fit 40x30mm sticker
+- German AND French required
+- Use **text** for bold headers and important info
+- ALLERGENS IN CAPITALS AND BOLD (e.g., **SULFITE**)
+- Format must be copypasteable as-is to sticker software
+- Maximum 8-10 lines total
 
-Generate a COMPLETE Swiss beverage label. Use **text** for bold. Format exactly like:
-**Savanna Cidre - Alkoholisches Getränk auf Apfelweinbasis**
-
-Zutaten: ..., Konservierungsstoff: **SULFITE**
-
+Output format (compact, no extras):
+**Product Name - Category**
+Zutaten: ingredients, Konservierungsstoff: **ALLERGEN**
 **Alkoholgehalt:** X% vol. **Nettofüllmenge:** Xml
-
-**Hergestellt in Country** **Importeur:** Name Address
-
+**Hergestellt in Country** **Importeur:** Name, Address, Postal, City
 Phone
+**Haltbar bis:** info **Los:** info
 
-**Mindestens haltbar bis:** info **Losnummer:** info
-
-Include both German and French. Make **bold** the product name, section headers, allergens in CAPITALS, and important info.'''
+Output ONLY the label text. Nothing else.'''
 
         message = client.messages.create(
             model="claude-opus-4-5-20251101",
-            max_tokens=2500,
+            max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )
         
-        return jsonify({'output': message.content[0].text})
+        output = message.content[0].text.strip()
+        return jsonify({'output': output}), 200
+        
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': f'Generation error: {str(e)}'}), 500
 
-@app.route('/api/generate-eu', methods=['POST'])
+@app.route('/api/generate-eu', methods=['POST', 'OPTIONS'])
 def generate_eu():
+    if request.method == 'OPTIONS':
+        return '', 204
+    
     try:
-        if not client:
-            return jsonify({'error': 'API not configured. Set ANTHROPIC_API_KEY environment variable.'}), 500
-            
         data = request.json
-        text = data.get('text', '')
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+            
+        text = data.get('text', '').strip()
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
         
-        prompt = f'''You are an EU beverage label compliance expert (Regulation 1169/2011).
+        prompt = f'''Generate a STICKER-READY EU beverage label from this text:
+{text}
 
-Current label: {text}
+REQUIREMENTS:
+- NO extra blank lines between sections
+- Minimal spacing (compact format)
+- Short, tight lines to fit 40x30mm sticker
+- English language
+- Use **text** for bold headers and important info
+- ALLERGENS IN CAPITALS AND BOLD (e.g., **SULFITE**)
+- Format must be copypasteable as-is to sticker software
+- Maximum 8-10 lines total
 
-Generate a COMPLETE EU beverage label. Use **text** for bold. Format exactly like:
-**Savanna Cider - Alcoholic Beverage Based on Apple Cider**
-
-Ingredients: ..., Preservative: **SULFITE**
-
-**Alcohol content:** X% vol. **Net volume:** Xml
-
-**Manufactured in Country** **Importer:** Name Address
-
+Output format (compact, no extras):
+**Product Name - Category**
+Ingredients: ingredients, Preservative: **ALLERGEN**
+**Alcohol:** X% vol. **Volume:** Xml
+**Manufactured in Country** **Importer:** Name, Address, Postal, City
 Phone
+**Best before:** info **Batch:** info
 
-**Best before:** info **Batch code:** info
-
-In English. Make **bold** the product name, section headers, allergens in CAPITALS, and important info.'''
+Output ONLY the label text. Nothing else.'''
 
         message = client.messages.create(
             model="claude-opus-4-5-20251101",
-            max_tokens=2500,
+            max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )
         
-        return jsonify({'output': message.content[0].text})
+        output = message.content[0].text.strip()
+        return jsonify({'output': output}), 200
+        
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': f'Generation error: {str(e)}'}), 500
+
+@app.route('/api/validate-swiss', methods=['POST', 'OPTIONS'])
+def validate_swiss():
+    if request.method == 'OPTIONS':
+        return '', 204
+    
+    try:
+        data = request.json
+        text = data.get('text', '').lower()
+        
+        checks = []
+        mandatory = {
+            'Product Name': ['product', 'name', 'cidre', 'cider'],
+            'Origin': ['hergestellt', 'switzerland', 'südafrika'],
+            'Alcohol': ['%', 'vol'],
+            'Volume': ['ml'],
+            'Importer': ['importeur', 'address'],
+            'Allergen': ['sulfite', 'allergen', 'enthält'],
+            'Language': ['zutaten', 'deutsch'],
+        }
+        
+        for element, keywords in mandatory.items():
+            found = any(kw.lower() in text for kw in keywords)
+            checks.append({'pass': found, 'message': f'{element}: {"✓ Found" if found else "✗ Missing"}'})
+        
+        has_bold = '**' in text
+        checks.append({'pass': has_bold, 'message': f'Bold Formatting: {"✓ Applied" if has_bold else "✗ Not applied"}'})
+        
+        lines = len([l for l in text.split('\n') if l.strip()])
+        compact = lines <= 10
+        checks.append({'pass': compact, 'message': f'Compact Format: {"✓ Optimal" if compact else "✗ Too long"}'})
+        
+        passed = sum(1 for c in checks if c['pass'])
+        total = len(checks)
+        
+        return jsonify({
+            'checks': checks,
+            'summary': f'Switzerland: {passed}/{total} checks passed',
+            'compliant': passed == total
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/validate-eu', methods=['POST', 'OPTIONS'])
+def validate_eu():
+    if request.method == 'OPTIONS':
+        return '', 204
+    
+    try:
+        data = request.json
+        text = data.get('text', '').lower()
+        
+        checks = []
+        mandatory = {
+            'Product Name': ['product', 'beverage', 'cider'],
+            'Origin': ['manufactured', 'origin'],
+            'Alcohol': ['%', 'vol'],
+            'Volume': ['ml'],
+            'Importer': ['importer', 'address'],
+            'Allergen': ['sulfite', 'allergen'],
+            'Language': ['ingredients', 'english'],
+        }
+        
+        for element, keywords in mandatory.items():
+            found = any(kw.lower() in text for kw in keywords)
+            checks.append({'pass': found, 'message': f'{element}: {"✓ Found" if found else "✗ Missing"}'})
+        
+        has_bold = '**' in text
+        checks.append({'pass': has_bold, 'message': f'Bold Formatting: {"✓ Applied" if has_bold else "✗ Not applied"}'})
+        
+        lines = len([l for l in text.split('\n') if l.strip()])
+        compact = lines <= 10
+        checks.append({'pass': compact, 'message': f'Compact Format: {"✓ Optimal" if compact else "✗ Too long"}'})
+        
+        passed = sum(1 for c in checks if c['pass'])
+        total = len(checks)
+        
+        return jsonify({
+            'checks': checks,
+            'summary': f'EU: {passed}/{total} checks passed',
+            'compliant': passed == total
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'Endpoint not found'}), 404
+
+@app.errorhandler(500)
+def server_error(error):
+    return jsonify({'error': 'Server error'}), 500
 
 if __name__ == '__main__':
     print("\n" + "="*70)
-    print("Label Compliance Agent - Backend Server")
+    print("🏷️  Label Compliance Agent V3 - Backend Server")
     print("="*70)
-    
-    if not os.getenv('ANTHROPIC_API_KEY'):
-        print("\n❌ ERROR: ANTHROPIC_API_KEY not set!")
-        print("\nSet it with:")
-        print("  export ANTHROPIC_API_KEY='sk-ant-...'")
-        print("\nThen run this script again.")
-        exit(1)
-    
-    print("\n✓ API key configured")
-    print("✓ Server starting on http://localhost:5000")
-    print("✓ Open your browser to http://localhost:5000")
-    print("\nPress Ctrl+C to stop the server")
+    print("\n✅ API key: CONFIGURED")
+    print("✅ Flask: READY")
+    print("✅ CORS: ENABLED")
+    print("\n🌐 Server starting on http://localhost:5000")
+    print("\n📝 Next steps:")
+    print("  1. Open http://localhost:5000 in your browser")
+    print("  2. Or open index.html and make sure to access it from http://localhost:5000")
+    print("\n⚠️  IMPORTANT: Use http://localhost:5000, NOT file:// path")
+    print("\n✨ Features:")
+    print("  • Sticker-ready formatting")
+    print("  • Green color scheme")
+    print("  • Real-time validation")
+    print("  • Switzerland (FSV) + EU (1169/2011)")
+    print("\n⏹️  Press Ctrl+C to stop server")
     print("="*70 + "\n")
-
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    
+    app.run(debug=False, port=5000, host='127.0.0.1')

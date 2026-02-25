@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Label Compliance Agent</title>
+    <title>Label Compliance Agent V3</title>
     <style>
         * {
             margin: 0;
@@ -14,9 +14,11 @@
         :root {
             --primary: #0f172a;
             --secondary: #1e293b;
-            --accent: #3b82f6;
-            --accent-light: #60a5fa;
+            --accent: #10b981;
+            --accent-light: #34d399;
+            --accent-dark: #059669;
             --success: #10b981;
+            --warning: #f59e0b;
             --error: #ef4444;
             --text: #f1f5f9;
             --text-muted: #cbd5e1;
@@ -31,15 +33,15 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1600px;
             margin: 0 auto;
             padding: 20px;
         }
 
         header {
-            background: rgba(15, 23, 42, 0.9);
+            background: rgba(15, 23, 42, 0.95);
             backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--border);
+            border-bottom: 3px solid var(--accent);
             padding: 20px 0;
             margin-bottom: 40px;
             position: sticky;
@@ -61,79 +63,91 @@
         }
 
         .logo-icon {
-            width: 40px;
-            height: 40px;
+            width: 45px;
+            height: 45px;
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
-            border-radius: 8px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 24px;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
         }
 
         .logo-text h1 {
-            font-size: 20px;
-            font-weight: 700;
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--accent-light);
         }
 
         .logo-text p {
             font-size: 12px;
             color: var(--text-muted);
+            margin-top: 2px;
         }
 
         .status {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 16px;
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            border-radius: 6px;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+            border: 2px solid var(--accent);
+            border-radius: 8px;
             font-size: 13px;
-            color: var(--success);
+            color: var(--accent-light);
+            font-weight: 600;
         }
 
-        .grid {
+        .grid-3 {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 30px;
             margin-bottom: 40px;
         }
 
-        @media (max-width: 1024px) {
-            .grid { grid-template-columns: 1fr; }
+        @media (max-width: 1300px) {
+            .grid-3 { grid-template-columns: 1fr 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            .grid-3 { grid-template-columns: 1fr; }
         }
 
         .card {
-            background: rgba(30, 41, 59, 0.9);
+            background: rgba(30, 41, 59, 0.95);
             backdrop-filter: blur(10px);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 30px;
+            border-radius: 14px;
+            padding: 28px;
             transition: all 0.3s ease;
         }
 
         .card:hover {
             border-color: var(--accent);
-            box-shadow: 0 0 30px rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 35px rgba(16, 185, 129, 0.15);
+            transform: translateY(-2px);
         }
 
         .card h2 {
-            font-size: 20px;
+            font-size: 18px;
             margin-bottom: 20px;
             display: flex;
             align-items: center;
             gap: 10px;
+            color: var(--accent-light);
+            font-weight: 700;
         }
 
         .card-icon {
-            width: 32px;
-            height: 32px;
-            background: rgba(59, 130, 246, 0.2);
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1));
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 18px;
         }
 
         .form-group {
@@ -146,28 +160,30 @@
             font-weight: 600;
             margin-bottom: 8px;
             color: var(--text);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         textarea {
             width: 100%;
             padding: 12px;
-            background: rgba(15, 23, 42, 0.5);
+            background: rgba(15, 23, 42, 0.6);
             border: 1px solid var(--border);
             border-radius: 8px;
             color: var(--text);
             font-family: 'Monaco', 'Courier New', monospace;
-            font-size: 13px;
+            font-size: 12px;
             resize: vertical;
             min-height: 250px;
             transition: all 0.3s ease;
-            line-height: 1.6;
+            line-height: 1.5;
         }
 
         textarea:focus {
             outline: none;
             border-color: var(--accent);
             background: rgba(15, 23, 42, 0.8);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
         }
 
         button {
@@ -175,24 +191,31 @@
             border: none;
             border-radius: 8px;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .btn-primary {
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
-            color: white;
+            color: #000;
             width: 100%;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
         }
 
         .btn-primary:disabled {
@@ -201,34 +224,70 @@
             transform: none;
         }
 
-        .output-section {
-            margin-top: 20px;
+        .copy-btn {
+            padding: 10px 16px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            margin-top: 10px;
         }
 
-        .output-title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: var(--accent-light);
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        .copy-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .copy-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Sticker Preview */
+        .sticker-preview-box {
+            background: #ffffff;
+            border: 3px dashed var(--accent);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 15px 0;
+            font-family: Arial, sans-serif;
+            font-size: 9px;
+            line-height: 1.2;
+            color: #000;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .sticker-info {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(16, 185, 129, 0.05);
+            border-radius: 6px;
+            border-left: 3px solid var(--accent);
         }
 
         .output-box {
-            background: rgba(15, 23, 42, 0.5);
+            background: rgba(15, 23, 42, 0.6);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 20px;
-            line-height: 1.8;
+            padding: 16px;
+            line-height: 1.5;
             font-size: 12px;
-            max-height: 400px;
+            max-height: 350px;
             overflow-y: auto;
             white-space: pre-wrap;
             word-wrap: break-word;
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             color: var(--text);
-            letter-spacing: 0.3px;
         }
 
         .output-box strong {
@@ -236,34 +295,57 @@
             color: #ffffff;
         }
 
-        .copy-btn {
-            padding: 8px 14px;
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
-            color: white;
-            border: none;
-            border-radius: 6px;
+        /* Validation */
+        .validation-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px;
+            border-radius: 8px;
             font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 10px;
-            transition: all 0.2s ease;
+            margin-bottom: 8px;
+            background: rgba(16, 185, 129, 0.08);
+            border-left: 3px solid var(--accent);
         }
 
-        .copy-btn:hover {
-            background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        .validation-item.pass {
+            background: rgba(16, 185, 129, 0.1);
+            border-left-color: var(--success);
+            color: var(--success);
         }
 
-        .copy-btn:active {
-            transform: translateY(0);
+        .validation-item.fail {
+            background: rgba(239, 68, 68, 0.1);
+            border-left-color: var(--error);
+            color: var(--error);
+        }
+
+        .validation-icon {
+            font-weight: bold;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .validation-text {
+            flex: 1;
+            line-height: 1.4;
+        }
+
+        .validation-summary {
+            margin-top: 15px;
+            padding: 12px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+            border-radius: 6px;
+            border-left: 3px solid var(--accent);
+            font-size: 12px;
+            color: var(--text-muted);
         }
 
         .loader {
             display: inline-block;
             width: 14px;
             height: 14px;
-            border: 2px solid rgba(59, 130, 246, 0.3);
+            border: 2px solid rgba(16, 185, 129, 0.3);
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
@@ -274,11 +356,13 @@
         }
 
         .alert {
-            padding: 12px;
+            padding: 14px;
             border-radius: 8px;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             font-size: 13px;
             display: none;
+            border-left: 4px solid var(--accent);
+            background: rgba(16, 185, 129, 0.1);
         }
 
         .alert.show {
@@ -293,13 +377,13 @@
 
         .alert-success {
             background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-left-color: var(--success);
             color: var(--success);
         }
 
         .alert-error {
             background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-left-color: var(--error);
             color: var(--error);
         }
 
@@ -316,7 +400,7 @@
             gap: 8px;
             padding: 10px;
             background: rgba(15, 23, 42, 0.5);
-            border: 1px solid var(--border);
+            border: 1.5px solid var(--border);
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -324,32 +408,30 @@
 
         .market-checkbox:hover {
             border-color: var(--accent);
+            background: rgba(16, 185, 129, 0.05);
         }
 
         .market-checkbox input {
             cursor: pointer;
             accent-color: var(--accent);
+            width: 16px;
+            height: 16px;
         }
 
-        .compliance-note {
-            background: rgba(59, 130, 246, 0.1);
-            border-left: 3px solid var(--accent);
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 15px;
+        .market-checkbox span {
+            font-size: 13px;
+            font-weight: 600;
         }
 
         .empty-state {
             text-align: center;
-            padding: 60px 20px;
+            padding: 50px 20px;
             color: var(--text-muted);
         }
 
         .empty-state-icon {
             font-size: 48px;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
 
         footer {
@@ -369,6 +451,50 @@
         a:hover {
             text-decoration: underline;
         }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            padding: 10px 12px;
+            background: none;
+            color: var(--text-muted);
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tab-btn.active {
+            color: var(--accent-light);
+            border-bottom-color: var(--accent);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--accent-light);
+            margin-top: 20px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
     </style>
 </head>
 <body>
@@ -379,12 +505,12 @@
                 <div class="logo">
                     <div class="logo-icon">🏷️</div>
                     <div class="logo-text">
-                        <h1>Label Compliance Agent</h1>
-                        <p>Switzerland (FSV) + EU (1169/2011)</p>
+                        <h1>Label Compliance V3</h1>
+                        <p>Sticker-Ready • Switzerland (FSV) + EU (1169/2011)</p>
                     </div>
                 </div>
                 <div class="status">
-                    <span>✓ Ready</span>
+                    ✓ Sticker Ready Format
                 </div>
             </div>
         </div>
@@ -394,11 +520,10 @@
     <div class="container">
         <div id="alertContainer"></div>
 
-        <div class="grid">
-            <!-- Input Section -->
+        <div class="grid-3">
+            <!-- COLUMN 1: INPUT -->
             <div class="card">
-                <h2><div class="card-icon">📝</div> Old Label Text</h2>
-                <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Paste your current label</p>
+                <h2><div class="card-icon">📝</div> Input</h2>
 
                 <div class="form-group">
                     <label>Target Markets</label>
@@ -416,7 +541,7 @@
 
                 <div class="form-group">
                     <label>Current Label Text</label>
-                    <textarea id="oldLabelText" placeholder="Paste your current label text here...">Savanna Cider
+                    <textarea id="oldLabelText" placeholder="Paste your current label text...">Savanna Cider
 Enthält Sulfite
 6% Alkoholgehalt
 Importeur: Lekker Roots
@@ -425,40 +550,67 @@ Haberweidstrasse 4
                 </div>
 
                 <button class="btn-primary" onclick="updateLabel()" id="updateBtn">
-                    <span id="updateBtnText">Generate Compliant Label</span>
+                    <span id="updateBtnText">Generate & Validate</span>
                 </button>
 
-                <div class="compliance-note">
-                    ℹ️ We'll generate properly formatted labels with all required elements, correct capitalization, and allergen declarations in CAPITALS.
+                <div class="sticker-info">
+                    ℹ️ Output is pre-formatted for small label stickers. Copy & paste directly!
                 </div>
             </div>
 
-            <!-- Output Section -->
+            <!-- COLUMN 2: OUTPUT -->
             <div class="card">
-                <h2><div class="card-icon">✅</div> Compliant Output</h2>
-                <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Your verified and formatted label</p>
+                <h2><div class="card-icon">✨</div> Sticker Output</h2>
 
                 <div id="outputContainer" style="display: none;">
-                    <div class="output-section" id="swissSection" style="display: none;">
-                        <div class="output-title">🇨🇭 Switzerland</div>
-                        <div class="output-box" id="swissOutput"></div>
-                        <button class="copy-btn" onclick="copyText('swissOutput')">Copy Swiss Label</button>
+                    <div id="swissSection" style="display: none;">
+                        <div class="section-title">🇨🇭 Switzerland</div>
+                        <div class="sticker-preview-box" id="swissPreview"></div>
+                        <div class="output-box" id="swissOutput" style="display: none;"></div>
+                        <button class="copy-btn" onclick="copyText('swissOutput')" id="copySwissBtn">📋 Copy Swiss Label</button>
                     </div>
 
-                    <div class="output-section" id="euSection" style="display: none;">
-                        <div class="output-title">🇪🇺 EU</div>
-                        <div class="output-box" id="euOutput"></div>
-                        <button class="copy-btn" onclick="copyText('euOutput')">Copy EU Label</button>
-                    </div>
-
-                    <div class="compliance-note" style="margin-top: 20px;">
-                        ✓ Ready to print. All mandatory elements included. Properly formatted with correct text styling and capitalization.
+                    <div id="euSection" style="display: none; margin-top: 20px;">
+                        <div class="section-title">🇪🇺 EU</div>
+                        <div class="sticker-preview-box" id="euPreview"></div>
+                        <div class="output-box" id="euOutput" style="display: none;"></div>
+                        <button class="copy-btn" onclick="copyText('euOutput')" id="copyEuBtn">📋 Copy EU Label</button>
                     </div>
                 </div>
 
                 <div id="emptyState" class="empty-state">
                     <div class="empty-state-icon">📋</div>
-                    <p>Enter label text and click generate to see compliant output here</p>
+                    <p>Generate label to see sticker-ready format</p>
+                </div>
+            </div>
+
+            <!-- COLUMN 3: VALIDATION -->
+            <div class="card">
+                <h2><div class="card-icon">✅</div> Validation</h2>
+
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="switchTab('ch-validate')">🇨🇭 CH</button>
+                    <button class="tab-btn" onclick="switchTab('eu-validate')">🇪🇺 EU</button>
+                </div>
+
+                <div id="ch-validate" class="tab-content active">
+                    <div id="chValidation">
+                        <p style="color: var(--text-muted); font-size: 12px; text-align: center; padding: 40px 0;">
+                            Generate label to validate
+                        </p>
+                    </div>
+                </div>
+
+                <div id="eu-validate" class="tab-content">
+                    <div id="euValidation">
+                        <p style="color: var(--text-muted); font-size: 12px; text-align: center; padding: 40px 0;">
+                            Generate label to validate
+                        </p>
+                    </div>
+                </div>
+
+                <div class="sticker-info" style="margin-top: 15px;">
+                    ✓ Checks all mandatory elements and regulatory requirements
                 </div>
             </div>
         </div>
@@ -469,19 +621,68 @@ Haberweidstrasse 4
         <p>⚠️ Always verify final labels with your legal team before printing.</p>
         <p style="margin-top: 10px;">
             <a href="https://www.blv.admin.ch" target="_blank">Switzerland FSV</a> • 
-            <a href="https://ec.europa.eu/food" target="_blank">EU Regulations</a>
+            <a href="https://ec.europa.eu/food" target="_blank">EU Regulations</a> • 
+            <strong>v3.0 - Sticker Ready</strong>
         </p>
     </footer>
 
     <script>
-        // Backend server URL (change if running on different port/host)
         const BACKEND_URL = 'http://localhost:5000';
+        let serverOnline = false;
+
+        // Check server status on load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(BACKEND_URL + '/api/health');
+                if (response.ok) {
+                    serverOnline = true;
+                    showAlert('✅ Server connected! Ready to generate labels.', 'success');
+                } else {
+                    showServerError();
+                }
+            } catch (error) {
+                showServerError();
+            }
+        });
+
+        function showServerError() {
+            serverOnline = false;
+            const msg = `
+❌ BACKEND SERVER NOT RUNNING!
+
+⏹️ Quick Fix:
+1. Open Terminal/Command Prompt
+2. Make sure you're in the folder with server.py
+3. Run: python server.py
+4. Wait for message: "✅ API key: CONFIGURED"
+5. Then refresh this browser page
+
+⚠️ Common mistakes:
+• Did you set your API key first?
+  export ANTHROPIC_API_KEY='sk-ant-...'
+  
+• Is python installed?
+  python --version
+
+• Is the server actually running?
+  Check the terminal - you should see the startup message
+
+🔗 Make sure to access from: http://localhost:5000
+NOT from: file:// path
+            `.trim();
+            showAlert(msg, 'error');
+        }
 
         function formatLabelOutput(text) {
             return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         }
 
         async function updateLabel() {
+            if (!serverOnline) {
+                showAlert('❌ Server not connected. Did you run: python server.py ?', 'error');
+                return;
+            }
+
             const text = document.getElementById('oldLabelText').value.trim();
             if (!text) {
                 showAlert('Please enter label text', 'error');
@@ -499,40 +700,97 @@ Haberweidstrasse 4
             try {
                 if (markets.includes('switzerland')) {
                     const swissResponse = await callBackend('/api/generate-swiss', { text });
+                    document.getElementById('swissPreview').textContent = swissResponse;
                     document.getElementById('swissOutput').innerHTML = formatLabelOutput(swissResponse);
+                    document.getElementById('swissOutput').style.display = 'block';
+                    document.getElementById('copySwissBtn').style.display = 'block';
                     document.getElementById('swissSection').style.display = 'block';
+                    
+                    // Validate Switzerland
+                    const chValidation = await callBackend('/api/validate-swiss', { text: swissResponse });
+                    displayValidation('chValidation', chValidation);
                 }
 
                 if (markets.includes('eu')) {
                     const euResponse = await callBackend('/api/generate-eu', { text });
+                    document.getElementById('euPreview').textContent = euResponse;
                     document.getElementById('euOutput').innerHTML = formatLabelOutput(euResponse);
+                    document.getElementById('euOutput').style.display = 'block';
+                    document.getElementById('copyEuBtn').style.display = 'block';
                     document.getElementById('euSection').style.display = 'block';
+                    
+                    // Validate EU
+                    const euValidation = await callBackend('/api/validate-eu', { text: euResponse });
+                    displayValidation('euValidation', euValidation);
                 }
 
                 document.getElementById('emptyState').style.display = 'none';
                 document.getElementById('outputContainer').style.display = 'block';
-                showAlert('Label generated successfully!', 'success');
+                showAlert('✓ Label generated and validated!', 'success');
             } catch (error) {
-                showAlert('Error: ' + error.message, 'error');
+                const msg = error.message;
+                if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+                    showAlert('❌ Server connection failed. Run: python server.py', 'error');
+                } else {
+                    showAlert('Error: ' + msg, 'error');
+                }
             } finally {
                 setLoading('updateBtn', false);
             }
         }
 
-        async function callBackend(endpoint, data) {
-            const response = await fetch(BACKEND_URL + endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'API request failed');
+        function displayValidation(elementId, validationData) {
+            const element = document.getElementById(elementId);
+            let html = '';
+            
+            if (typeof validationData === 'string') {
+                try {
+                    validationData = JSON.parse(validationData);
+                } catch (e) {
+                    element.innerHTML = '<p style="color: var(--text-muted);">Could not parse validation</p>';
+                    return;
+                }
             }
 
-            const result = await response.json();
-            return result.output;
+            if (validationData.checks && Array.isArray(validationData.checks)) {
+                validationData.checks.forEach(check => {
+                    const icon = check.pass ? '✓' : '✕';
+                    const status = check.pass ? 'pass' : 'fail';
+                    html += `<div class="validation-item ${status}">
+                        <span class="validation-icon">${icon}</span>
+                        <span class="validation-text">${check.message}</span>
+                    </div>`;
+                });
+            }
+
+            if (validationData.summary) {
+                html += `<div class="validation-summary">${validationData.summary}</div>`;
+            }
+
+            element.innerHTML = html || '<p style="color: var(--text-muted); padding: 20px 0;">Validation data not available</p>';
+        }
+
+        async function callBackend(endpoint, data) {
+            try {
+                const response = await fetch(BACKEND_URL + endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || `API error: ${response.status}`);
+                }
+
+                const result = await response.json();
+                return result.output || result;
+            } catch (error) {
+                if (error.message.includes('Failed to fetch')) {
+                    throw new Error('Backend server not running. Run: python server.py');
+                }
+                throw error;
+            }
         }
 
         function getMarkets() {
@@ -543,7 +801,7 @@ Haberweidstrasse 4
             const btn = document.getElementById(id);
             const text = btn.querySelector('span');
             btn.disabled = loading;
-            text.innerHTML = loading ? '<span class="loader"></span> Processing...' : 'Generate Compliant Label';
+            text.innerHTML = loading ? '<span class="loader"></span> Processing...' : 'Generate & Validate';
         }
 
         function showAlert(msg, type) {
@@ -573,24 +831,18 @@ Haberweidstrasse 4
             }
             
             navigator.clipboard.writeText(text).then(() => {
-                showAlert('✓ Copied to clipboard!', 'success');
-            }).catch((err) => {
-                showAlert('Failed to copy - try manual select', 'error');
+                showAlert('✓ Copied! Ready to paste on sticker.', 'success');
+            }).catch(() => {
+                showAlert('Failed to copy', 'error');
             });
         }
 
-        // Check if backend is available on page load
-        window.addEventListener('load', async () => {
-            try {
-                const response = await fetch(BACKEND_URL + '/api/generate-swiss', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: 'test' })
-                });
-            } catch (error) {
-                showAlert('⚠️ Backend server not running! Run: python server.py', 'error');
-            }
-        });
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
     </script>
 </body>
 </html>
