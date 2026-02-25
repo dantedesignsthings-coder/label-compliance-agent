@@ -627,7 +627,8 @@ Haberweidstrasse 4
     </footer>
 
     <script>
-        const BACKEND_URL = 'http://localhost:5000';
+        // Dynamic backend URL detection - works locally and on Render
+        const BACKEND_URL = window.location.origin;
         let serverOnline = false;
 
         // Check server status on load

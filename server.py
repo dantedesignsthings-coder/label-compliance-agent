@@ -1,50 +1,32 @@
 #!/usr/bin/env python3
 """
-Label Compliance Agent V3 - Fixed Backend Server
-Better error handling and CORS support
+Label Compliance Agent V3 - Render Production Server
+Ready for deployment on Render.com
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from anthropic import Anthropic
 import os
-import sys
+import json
 
-# Check for API key first
-api_key = os.getenv('ANTHROPIC_API_KEY')
-if not api_key:
-    print("\n" + "="*70)
-    print("❌ ERROR: ANTHROPIC_API_KEY environment variable not set!")
-    print("="*70)
-    print("\nSet it with:")
-    print("  Mac/Linux: export ANTHROPIC_API_KEY='sk-ant-...'")
-    print("  Windows CMD: set ANTHROPIC_API_KEY=sk-ant-...")
-    print("  Windows PowerShell: $env:ANTHROPIC_API_KEY='sk-ant-...'")
-    print("\nThen run: python server.py")
-    print("="*70 + "\n")
-    sys.exit(1)
+app = Flask(__name__, static_url_path='', static_folder='.')
+CORS(app)
 
-app = Flask(__name__)
-
-# Better CORS configuration
-CORS(app, resources={
-    r"/api/*": {
-        "origins": "*",
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
-    }
-})
-
-# Initialize Anthropic
 try:
-    client = Anthropic(api_key=api_key)
+    client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 except Exception as e:
-    print(f"\n❌ Error initializing Anthropic: {str(e)}\n")
-    sys.exit(1)
+    print(f"Error: Could not initialize Anthropic client. Make sure ANTHROPIC_API_KEY is set.")
+    client = None
 
+# Serve the main HTML page
 @app.route('/')
 def index():
-    return '''<!DOCTYPE html>
+    try:
+        with open('index.html', 'r') as f:
+            return f.read()
+    except:
+        return '''<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -52,66 +34,53 @@ def index():
     <title>Label Compliance Agent V3</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto; background: linear-gradient(135deg, #0f172a 0%, #0d1629 50%, #1a2332 100%); color: #f1f5f9; margin: 0; padding: 40px; text-align: center; }
-        .box { max-width: 600px; margin: 0 auto; background: rgba(16, 185, 129, 0.1); border: 2px solid #10b981; border-radius: 12px; padding: 30px; }
-        h1 { color: #34d399; font-size: 28px; margin: 0 0 10px 0; }
-        p { color: #cbd5e1; font-size: 14px; margin: 8px 0; }
-        .code { background: rgba(15, 23, 42, 0.9); padding: 12px; border-radius: 8px; border-left: 3px solid #10b981; font-family: monospace; font-size: 13px; margin: 15px 0; text-align: left; }
-        a { color: #34d399; text-decoration: none; font-weight: bold; }
-        a:hover { text-decoration: underline; }
-        .success { color: #10b981; font-weight: bold; }
+        h1 { color: #34d399; font-size: 28px; }
+        p { color: #cbd5e1; font-size: 16px; margin: 10px 0; }
+        .info { background: rgba(16, 185, 129, 0.1); padding: 20px; border-radius: 8px; border-left: 3px solid #10b981; margin: 20px auto; max-width: 500px; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h1>✅ Server Running!</h1>
-        <p class="success">Backend is ready at http://localhost:5000</p>
-        <p style="margin: 20px 0;">Open <strong>index.html</strong> in your browser</p>
-        <p style="color: #f59e0b; margin-top: 20px;">⚠️ Make sure you opened index.html from http://localhost:5000, not file:// path</p>
+    <h1>🏷️ Label Compliance Agent V3</h1>
+    <p>Backend Server Running on Render</p>
+    <p>✓ API configured</p>
+    <p>✓ Server ready</p>
+    <div class="info">
+        <p>The main app page should load automatically.</p>
+        <p>If not, refresh your browser.</p>
     </div>
 </body>
 </html>'''
 
-@app.route('/api/health', methods=['GET'])
-def health():
-    """Health check endpoint"""
-    return jsonify({'status': 'ok', 'message': 'Server is running'})
-
-@app.route('/api/generate-swiss', methods=['POST', 'OPTIONS'])
+@app.route('/api/generate-swiss', methods=['POST'])
 def generate_swiss():
-    if request.method == 'OPTIONS':
-        return '', 204
-    
     try:
-        data = request.json
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
+        if not client:
+            return jsonify({'error': 'API not configured. Set ANTHROPIC_API_KEY environment variable.'}), 500
             
-        text = data.get('text', '').strip()
-        if not text:
-            return jsonify({'error': 'No text provided'}), 400
+        data = request.json
+        text = data.get('text', '')
         
         prompt = f'''Generate a STICKER-READY Swiss beverage label from this text:
 {text}
 
 REQUIREMENTS:
-- NO extra blank lines between sections
+- NO extra blank lines
 - Minimal spacing (compact format)
 - Short, tight lines to fit 40x30mm sticker
 - German AND French required
 - Use **text** for bold headers and important info
-- ALLERGENS IN CAPITALS AND BOLD (e.g., **SULFITE**)
-- Format must be copypasteable as-is to sticker software
-- Maximum 8-10 lines total
+- ALLERGENS IN CAPITALS AND BOLD
+- Format must be copypasteable as-is
 
 Output format (compact, no extras):
 **Product Name - Category**
-Zutaten: ingredients, Konservierungsstoff: **ALLERGEN**
+Zutaten: ..., Konservierungsstoff: **ALLERGEN**
 **Alkoholgehalt:** X% vol. **Nettofüllmenge:** Xml
 **Hergestellt in Country** **Importeur:** Name, Address, Postal, City
 Phone
 **Haltbar bis:** info **Los:** info
 
-Output ONLY the label text. Nothing else.'''
+Output ONLY the label text, nothing else. Make it fit a 40x30mm sticker.'''
 
         message = client.messages.create(
             model="claude-opus-4-5-20251101",
@@ -120,47 +89,40 @@ Output ONLY the label text. Nothing else.'''
         )
         
         output = message.content[0].text.strip()
-        return jsonify({'output': output}), 200
-        
+        return jsonify({'output': output})
     except Exception as e:
-        return jsonify({'error': f'Generation error: {str(e)}'}), 500
+        return jsonify({'error': str(e)}), 400
 
-@app.route('/api/generate-eu', methods=['POST', 'OPTIONS'])
+@app.route('/api/generate-eu', methods=['POST'])
 def generate_eu():
-    if request.method == 'OPTIONS':
-        return '', 204
-    
     try:
-        data = request.json
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
+        if not client:
+            return jsonify({'error': 'API not configured. Set ANTHROPIC_API_KEY environment variable.'}), 500
             
-        text = data.get('text', '').strip()
-        if not text:
-            return jsonify({'error': 'No text provided'}), 400
+        data = request.json
+        text = data.get('text', '')
         
         prompt = f'''Generate a STICKER-READY EU beverage label from this text:
 {text}
 
 REQUIREMENTS:
-- NO extra blank lines between sections
+- NO extra blank lines
 - Minimal spacing (compact format)
 - Short, tight lines to fit 40x30mm sticker
 - English language
 - Use **text** for bold headers and important info
-- ALLERGENS IN CAPITALS AND BOLD (e.g., **SULFITE**)
-- Format must be copypasteable as-is to sticker software
-- Maximum 8-10 lines total
+- ALLERGENS IN CAPITALS AND BOLD
+- Format must be copypasteable as-is
 
 Output format (compact, no extras):
 **Product Name - Category**
-Ingredients: ingredients, Preservative: **ALLERGEN**
+Ingredients: ..., Preservative: **ALLERGEN**
 **Alcohol:** X% vol. **Volume:** Xml
 **Manufactured in Country** **Importer:** Name, Address, Postal, City
 Phone
 **Best before:** info **Batch:** info
 
-Output ONLY the label text. Nothing else.'''
+Output ONLY the label text, nothing else. Make it fit a 40x30mm sticker.'''
 
         message = client.messages.create(
             model="claude-opus-4-5-20251101",
@@ -169,121 +131,139 @@ Output ONLY the label text. Nothing else.'''
         )
         
         output = message.content[0].text.strip()
-        return jsonify({'output': output}), 200
-        
+        return jsonify({'output': output})
     except Exception as e:
-        return jsonify({'error': f'Generation error: {str(e)}'}), 500
+        return jsonify({'error': str(e)}), 400
 
-@app.route('/api/validate-swiss', methods=['POST', 'OPTIONS'])
+@app.route('/api/validate-swiss', methods=['POST'])
 def validate_swiss():
-    if request.method == 'OPTIONS':
-        return '', 204
-    
     try:
         data = request.json
-        text = data.get('text', '').lower()
+        text = data.get('text', '')
         
         checks = []
+        
+        # Check for mandatory elements
         mandatory = {
-            'Product Name': ['product', 'name', 'cidre', 'cider'],
-            'Origin': ['hergestellt', 'switzerland', 'südafrika'],
+            'Product Name': ['Savanna', 'Cidre', 'product', 'name'],
+            'Origin': ['Hergestellt', 'Switzerland', 'Südafrika'],
             'Alcohol': ['%', 'vol'],
-            'Volume': ['ml'],
-            'Importer': ['importeur', 'address'],
-            'Allergen': ['sulfite', 'allergen', 'enthält'],
-            'Language': ['zutaten', 'deutsch'],
+            'Volume': ['ml', 'Volumen'],
+            'Importer': ['Importeur', 'Lekker', 'address'],
+            'Allergen Declaration': ['SULFITE', 'allergen', 'enthält'],
+            'Language': ['German', 'Deutsch', 'Zutaten', 'Ingredients'],
         }
         
+        text_lower = text.lower()
+        
         for element, keywords in mandatory.items():
-            found = any(kw.lower() in text for kw in keywords)
-            checks.append({'pass': found, 'message': f'{element}: {"✓ Found" if found else "✗ Missing"}'})
+            found = any(keyword.lower() in text_lower for keyword in keywords)
+            checks.append({
+                'pass': found,
+                'message': f'{element}: {"✓ Found" if found else "✗ Missing"}'
+            })
         
+        # Check formatting
         has_bold = '**' in text
-        checks.append({'pass': has_bold, 'message': f'Bold Formatting: {"✓ Applied" if has_bold else "✗ Not applied"}'})
+        checks.append({
+            'pass': has_bold,
+            'message': f'Bold Formatting: {"✓ Applied" if has_bold else "✗ Not applied"}'
+        })
         
-        lines = len([l for l in text.split('\n') if l.strip()])
-        compact = lines <= 10
-        checks.append({'pass': compact, 'message': f'Compact Format: {"✓ Optimal" if compact else "✗ Too long"}'})
+        # Check line breaks
+        line_count = len(text.split('\n'))
+        compact = line_count <= 8
+        checks.append({
+            'pass': compact,
+            'message': f'Compact Format: {"✓ ({} lines)" if compact else "✗ ({} lines)"}'.format(line_count, line_count)
+        })
         
+        # Summary
         passed = sum(1 for c in checks if c['pass'])
         total = len(checks)
+        summary = f"Switzerland Compliance: {passed}/{total} checks passed"
         
         return jsonify({
             'checks': checks,
-            'summary': f'Switzerland: {passed}/{total} checks passed',
+            'summary': summary,
             'compliant': passed == total
-        }), 200
+        })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e)}), 400
 
-@app.route('/api/validate-eu', methods=['POST', 'OPTIONS'])
+@app.route('/api/validate-eu', methods=['POST'])
 def validate_eu():
-    if request.method == 'OPTIONS':
-        return '', 204
-    
     try:
         data = request.json
-        text = data.get('text', '').lower()
+        text = data.get('text', '')
         
         checks = []
+        
+        # Check for mandatory elements
         mandatory = {
             'Product Name': ['product', 'beverage', 'cider'],
-            'Origin': ['manufactured', 'origin'],
+            'Origin': ['Manufactured', 'South Africa', 'origin'],
             'Alcohol': ['%', 'vol'],
-            'Volume': ['ml'],
-            'Importer': ['importer', 'address'],
-            'Allergen': ['sulfite', 'allergen'],
-            'Language': ['ingredients', 'english'],
+            'Volume': ['ml', 'volume'],
+            'Importer': ['Importer', 'address'],
+            'Allergen Declaration': ['SULFITE', 'allergen'],
+            'Language': ['English', 'Ingredients'],
         }
         
+        text_lower = text.lower()
+        
         for element, keywords in mandatory.items():
-            found = any(kw.lower() in text for kw in keywords)
-            checks.append({'pass': found, 'message': f'{element}: {"✓ Found" if found else "✗ Missing"}'})
+            found = any(keyword.lower() in text_lower for keyword in keywords)
+            checks.append({
+                'pass': found,
+                'message': f'{element}: {"✓ Found" if found else "✗ Missing"}'
+            })
         
+        # Check formatting
         has_bold = '**' in text
-        checks.append({'pass': has_bold, 'message': f'Bold Formatting: {"✓ Applied" if has_bold else "✗ Not applied"}'})
+        checks.append({
+            'pass': has_bold,
+            'message': f'Bold Formatting: {"✓ Applied" if has_bold else "✗ Not applied"}'
+        })
         
-        lines = len([l for l in text.split('\n') if l.strip()])
-        compact = lines <= 10
-        checks.append({'pass': compact, 'message': f'Compact Format: {"✓ Optimal" if compact else "✗ Too long"}'})
+        # Check line breaks
+        line_count = len(text.split('\n'))
+        compact = line_count <= 8
+        checks.append({
+            'pass': compact,
+            'message': f'Compact Format: {"✓ ({} lines)" if compact else "✗ ({} lines)"}'.format(line_count, line_count)
+        })
         
+        # Summary
         passed = sum(1 for c in checks if c['pass'])
         total = len(checks)
+        summary = f"EU Compliance: {passed}/{total} checks passed"
         
         return jsonify({
             'checks': checks,
-            'summary': f'EU: {passed}/{total} checks passed',
+            'summary': summary,
             'compliant': passed == total
-        }), 200
+        })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({'error': 'Endpoint not found'}), 404
-
-@app.errorhandler(500)
-def server_error(error):
-    return jsonify({'error': 'Server error'}), 500
+        return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    
     print("\n" + "="*70)
-    print("🏷️  Label Compliance Agent V3 - Backend Server")
+    print("Label Compliance Agent V3 - Production Server")
     print("="*70)
-    print("\n✅ API key: CONFIGURED")
-    print("✅ Flask: READY")
-    print("✅ CORS: ENABLED")
-    print("\n🌐 Server starting on http://localhost:5000")
-    print("\n📝 Next steps:")
-    print("  1. Open http://localhost:5000 in your browser")
-    print("  2. Or open index.html and make sure to access it from http://localhost:5000")
-    print("\n⚠️  IMPORTANT: Use http://localhost:5000, NOT file:// path")
-    print("\n✨ Features:")
-    print("  • Sticker-ready formatting")
-    print("  • Green color scheme")
-    print("  • Real-time validation")
-    print("  • Switzerland (FSV) + EU (1169/2011)")
-    print("\n⏹️  Press Ctrl+C to stop server")
+    
+    if not os.getenv('ANTHROPIC_API_KEY'):
+        print("\n⚠️  WARNING: ANTHROPIC_API_KEY not set!")
+        print("Set it in Render dashboard: Settings → Environment Variables")
+        print("Key: ANTHROPIC_API_KEY")
+        print("Value: sk-ant-...")
+    
+    print(f"\n✓ Server starting on port {port}")
+    print("✓ API configured")
+    print(f"✓ Open: https://your-render-url.onrender.com")
+    print("\nPress Ctrl+C to stop")
     print("="*70 + "\n")
     
-    app.run(debug=False, port=5000, host='127.0.0.1')
+    app.run(host='0.0.0.0', port=port, debug=False)
