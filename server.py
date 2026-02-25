@@ -247,6 +247,10 @@ def validate_eu():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+@app.route('/api/health')
+def health():
+    return {"status": "ok"}, 200
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     
