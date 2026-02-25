@@ -399,8 +399,6 @@ if __name__ == '__main__':
     print("✓ Open your browser to http://localhost:5000")
     print("\nPress Ctrl+C to stop the server")
     print("="*70 + "\n")
-    
-    if __name__ == "__main__":
-    import os
+
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
