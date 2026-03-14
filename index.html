@@ -599,6 +599,15 @@ Haberweidstrasse 4
                             Generate label to validate
                         </p>
                     </div>
+                    <button class="copy-btn" onclick="autoFixLabel('switzerland')" id="fixChBtn" style="display: none; margin-top: 15px;">
+                        🔧 Auto-Fix & Correct
+                    </button>
+                    <div id="chFixed" style="display: none; margin-top: 20px;">
+                        <div class="section-title">✅ Corrected Label</div>
+                        <div class="sticker-preview-box" id="chFixedPreview"></div>
+                        <button class="copy-btn" onclick="copyText('chFixedText')" style="margin-top: 10px;">📋 Copy Fixed Swiss Label</button>
+                        <div id="chFixedText" style="display: none;"></div>
+                    </div>
                 </div>
 
                 <div id="eu-validate" class="tab-content">
@@ -606,6 +615,15 @@ Haberweidstrasse 4
                         <p style="color: var(--text-muted); font-size: 12px; text-align: center; padding: 40px 0;">
                             Generate label to validate
                         </p>
+                    </div>
+                    <button class="copy-btn" onclick="autoFixLabel('eu')" id="fixEuBtn" style="display: none; margin-top: 15px;">
+                        🔧 Auto-Fix & Correct
+                    </button>
+                    <div id="euFixed" style="display: none; margin-top: 20px;">
+                        <div class="section-title">✅ Corrected Label</div>
+                        <div class="sticker-preview-box" id="euFixedPreview"></div>
+                        <button class="copy-btn" onclick="copyText('euFixedText')" style="margin-top: 10px;">📋 Copy Fixed EU Label</button>
+                        <div id="euFixedText" style="display: none;"></div>
                     </div>
                 </div>
 
@@ -769,6 +787,51 @@ NOT from: file:// path
             }
 
             element.innerHTML = html || '<p style="color: var(--text-muted); padding: 20px 0;">Validation data not available</p>';
+            
+            // Show fix button if not all checks pass
+            if (validationData.checks) {
+                const allPass = validationData.checks.every(c => c.pass);
+                if (!allPass) {
+                    const isSwiss = elementId === 'chValidation';
+                    const btnId = isSwiss ? 'fixChBtn' : 'fixEuBtn';
+                    document.getElementById(btnId).style.display = 'block';
+                }
+            }
+        }
+
+        async function autoFixLabel(market) {
+            const isSwiss = market === 'switzerland';
+            const originalText = document.getElementById('oldLabelText').value.trim();
+            
+            if (!originalText) {
+                showAlert('No label text to fix', 'error');
+                return;
+            }
+
+            setLoading('updateBtn', true);
+
+            try {
+                const response = await callBackend('/api/fix-label', {
+                    text: originalText,
+                    market: market
+                });
+
+                if (isSwiss) {
+                    document.getElementById('chFixedPreview').textContent = response;
+                    document.getElementById('chFixedText').textContent = response;
+                    document.getElementById('chFixed').style.display = 'block';
+                } else {
+                    document.getElementById('euFixedPreview').textContent = response;
+                    document.getElementById('euFixedText').textContent = response;
+                    document.getElementById('euFixed').style.display = 'block';
+                }
+
+                showAlert('✓ Label corrected! All missing elements added.', 'success');
+            } catch (error) {
+                showAlert('Error fixing label: ' + error.message, 'error');
+            } finally {
+                setLoading('updateBtn', false);
+            }
         }
 
         async function callBackend(endpoint, data) {

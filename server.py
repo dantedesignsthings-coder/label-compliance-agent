@@ -191,8 +191,84 @@ def validate_swiss():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@app.route('/api/validate-eu', methods=['POST'])
-def validate_eu():
+@app.route('/api/fix-label', methods=['POST'])
+def fix_label():
+    try:
+        if not client:
+            return jsonify({'error': 'API not configured. Set ANTHROPIC_API_KEY environment variable.'}), 500
+            
+        data = request.json
+        text = data.get('text', '')
+        market = data.get('market', 'switzerland')
+        
+        if market == 'switzerland':
+            prompt = f'''You are a Swiss beverage label compliance expert. 
+            
+The user provided this incomplete/non-compliant label:
+{text}
+
+Your task: Generate a COMPLETE, STICKER-READY, fully compliant Swiss label that includes ALL missing mandatory elements.
+
+MANDATORY ELEMENTS TO INCLUDE:
+- Product name and category (clear and prominent)
+- Origin: "Hergestellt in [Country]"
+- Alcohol content: "X% vol."
+- Complete ingredients list with sub-components
+- ALLERGENS IN CAPITALS AND BOLD (e.g., **SULFITE**)
+- Net volume: "XXXml"
+- Importer: Full Swiss address with postal code
+- Phone number
+- Storage/shelf life information
+- Batch/lot information
+- BOTH German AND French text
+
+FORMATTING:
+- Compact, sticker-ready (fits 40x30mm)
+- NO extra blank lines
+- Use **text** for bold headers and allergens
+- One continuous flow, no unnecessary spacing
+
+Output ONLY the corrected label text, nothing else. Make it perfect and complete.'''
+        else:
+            prompt = f'''You are an EU beverage label compliance expert (Regulation 1169/2011).
+            
+The user provided this incomplete/non-compliant label:
+{text}
+
+Your task: Generate a COMPLETE, STICKER-READY, fully compliant EU label that includes ALL missing mandatory elements.
+
+MANDATORY ELEMENTS TO INCLUDE:
+- Product name and category (clear and prominent)
+- Origin: "Manufactured in [Country]"
+- Alcohol content: "X% vol."
+- Complete ingredients list with sub-components
+- ALLERGENS IN CAPITALS AND BOLD (e.g., **SULFITE**)
+- Net volume: "XXXml"
+- Importer: Full address with postal code
+- Phone number
+- Nutrition information (or exemption note)
+- Storage/shelf life information
+- Batch/lot information
+- English language
+
+FORMATTING:
+- Compact, sticker-ready (fits 40x30mm)
+- NO extra blank lines
+- Use **text** for bold headers and allergens
+- One continuous flow, no unnecessary spacing
+
+Output ONLY the corrected label text, nothing else. Make it perfect and complete.'''
+        
+        message = client.messages.create(
+            model="claude-opus-4-5-20251101",
+            max_tokens=1500,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        
+        output = message.content[0].text.strip()
+        return jsonify({'output': output})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
     try:
         data = request.json
         text = data.get('text', '')
@@ -246,10 +322,6 @@ def validate_eu():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 400
-
-@app.route('/api/health')
-def health():
-    return {"status": "ok"}, 200
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
