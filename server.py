@@ -1,64 +1,76 @@
 #!/usr/bin/env python3
 """
-Label Compliance Agent V3 - Render Production Server
-Ready for deployment on Render.com
+Label Compliance Agent V3 - Render Production Server (Fixed)
 """
 
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
-from anthropic import Anthropic
 import os
 import json
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from anthropic import Anthropic
 
-app = Flask(__name__, static_url_path='', static_folder='.')
+# Initialize Flask app
+app = Flask(__name__)
 CORS(app)
 
+# Initialize Anthropic client
 try:
-    client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not api_key:
+        print("WARNING: ANTHROPIC_API_KEY not set!")
+    client = Anthropic(api_key=api_key)
 except Exception as e:
-    print(f"Error: Could not initialize Anthropic client. Make sure ANTHROPIC_API_KEY is set.")
+    print(f"Error initializing Anthropic: {e}")
     client = None
 
-# Serve the main HTML page
+# ============================================================================
+# ROUTES
+# ============================================================================
+
 @app.route('/')
 def index():
+    """Serve the main HTML file"""
     try:
-        with open('index.html', 'r') as f:
+        with open('index.html', 'r', encoding='utf-8') as f:
             return f.read()
     except:
         return '''<!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Label Compliance Agent V3</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto; background: linear-gradient(135deg, #0f172a 0%, #0d1629 50%, #1a2332 100%); color: #f1f5f9; margin: 0; padding: 40px; text-align: center; }
-        h1 { color: #34d399; font-size: 28px; }
-        p { color: #cbd5e1; font-size: 16px; margin: 10px 0; }
-        .info { background: rgba(16, 185, 129, 0.1); padding: 20px; border-radius: 8px; border-left: 3px solid #10b981; margin: 20px auto; max-width: 500px; }
+        body { font-family: sans-serif; background: #0f172a; color: #f1f5f9; margin: 0; padding: 40px; text-align: center; }
+        h1 { color: #34d399; }
+        p { color: #cbd5e1; }
     </style>
 </head>
 <body>
     <h1>🏷️ Label Compliance Agent V3</h1>
-    <p>Backend Server Running on Render</p>
-    <p>✓ API configured</p>
-    <p>✓ Server ready</p>
-    <div class="info">
-        <p>The main app page should load automatically.</p>
-        <p>If not, refresh your browser.</p>
-    </div>
+    <p>Server is running...</p>
+    <p>If you see this, the backend is working!</p>
 </body>
 </html>'''
 
+@app.route('/api/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'ok',
+        'api_configured': client is not None
+    })
+
 @app.route('/api/generate-swiss', methods=['POST'])
 def generate_swiss():
+    """Generate Swiss-compliant label"""
     try:
         if not client:
-            return jsonify({'error': 'API not configured. Set ANTHROPIC_API_KEY environment variable.'}), 500
-            
-        data = request.json
+            return jsonify({'error': 'API not configured'}), 500
+        
+        data = request.get_json()
         text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
         
         prompt = f'''Generate a STICKER-READY Swiss beverage label from this text:
 {text}
@@ -68,20 +80,12 @@ REQUIREMENTS:
 - Minimal spacing (compact format)
 - Short, tight lines to fit 40x30mm sticker
 - German AND French required
-- Use **text** for bold headers and important info
+- Use **text** for bold headers
 - ALLERGENS IN CAPITALS AND BOLD
-- Format must be copypasteable as-is
+- Sticker-ready format
 
-Output format (compact, no extras):
-**Product Name - Category**
-Zutaten: ..., Konservierungsstoff: **ALLERGEN**
-**Alkoholgehalt:** X% vol. **Nettofüllmenge:** Xml
-**Hergestellt in Country** **Importeur:** Name, Address, Postal, City
-Phone
-**Haltbar bis:** info **Los:** info
-
-Output ONLY the label text, nothing else. Make it fit a 40x30mm sticker.'''
-
+Output ONLY the label text, nothing else.'''
+        
         message = client.messages.create(
             model="claude-opus-4-5-20251101",
             max_tokens=1500,
@@ -90,17 +94,22 @@ Output ONLY the label text, nothing else. Make it fit a 40x30mm sticker.'''
         
         output = message.content[0].text.strip()
         return jsonify({'output': output})
+    
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': f'Generation failed: {str(e)}'}), 400
 
 @app.route('/api/generate-eu', methods=['POST'])
 def generate_eu():
+    """Generate EU-compliant label"""
     try:
         if not client:
-            return jsonify({'error': 'API not configured. Set ANTHROPIC_API_KEY environment variable.'}), 500
-            
-        data = request.json
+            return jsonify({'error': 'API not configured'}), 500
+        
+        data = request.get_json()
         text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
         
         prompt = f'''Generate a STICKER-READY EU beverage label from this text:
 {text}
@@ -110,20 +119,12 @@ REQUIREMENTS:
 - Minimal spacing (compact format)
 - Short, tight lines to fit 40x30mm sticker
 - English language
-- Use **text** for bold headers and important info
+- Use **text** for bold headers
 - ALLERGENS IN CAPITALS AND BOLD
-- Format must be copypasteable as-is
+- Sticker-ready format
 
-Output format (compact, no extras):
-**Product Name - Category**
-Ingredients: ..., Preservative: **ALLERGEN**
-**Alcohol:** X% vol. **Volume:** Xml
-**Manufactured in Country** **Importer:** Name, Address, Postal, City
-Phone
-**Best before:** info **Batch:** info
-
-Output ONLY the label text, nothing else. Make it fit a 40x30mm sticker.'''
-
+Output ONLY the label text, nothing else.'''
+        
         message = client.messages.create(
             model="claude-opus-4-5-20251101",
             max_tokens=1500,
@@ -132,132 +133,178 @@ Output ONLY the label text, nothing else. Make it fit a 40x30mm sticker.'''
         
         output = message.content[0].text.strip()
         return jsonify({'output': output})
+    
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': f'Generation failed: {str(e)}'}), 400
 
 @app.route('/api/validate-swiss', methods=['POST'])
 def validate_swiss():
+    """Validate Swiss compliance"""
     try:
-        data = request.json
+        data = request.get_json()
         text = data.get('text', '')
         
         checks = []
-        
-        # Check for mandatory elements
-        mandatory = {
-            'Product Name': ['Savanna', 'Cidre', 'product', 'name'],
-            'Origin': ['Hergestellt', 'Switzerland', 'Südafrika'],
-            'Alcohol': ['%', 'vol'],
-            'Volume': ['ml', 'Volumen'],
-            'Importer': ['Importeur', 'Lekker', 'address'],
-            'Allergen Declaration': ['SULFITE', 'allergen', 'enthält'],
-            'Language': ['German', 'Deutsch', 'Zutaten', 'Ingredients'],
-        }
-        
         text_lower = text.lower()
         
-        for element, keywords in mandatory.items():
-            found = any(keyword.lower() in text_lower for keyword in keywords)
-            checks.append({
-                'pass': found,
-                'message': f'{element}: {"✓ Found" if found else "✗ Missing"}'
-            })
-        
-        # Check formatting
-        has_bold = '**' in text
+        # Mandatory checks
         checks.append({
-            'pass': has_bold,
-            'message': f'Bold Formatting: {"✓ Applied" if has_bold else "✗ Not applied"}'
+            'pass': 'product' in text_lower or 'cidre' in text_lower,
+            'message': 'Product Name: ✓ Found' if 'product' in text_lower or 'cidre' in text_lower else 'Product Name: ✗ Missing'
         })
         
-        # Check line breaks
-        line_count = len(text.split('\n'))
-        compact = line_count <= 8
         checks.append({
-            'pass': compact,
-            'message': f'Compact Format: {"✓ ({} lines)" if compact else "✗ ({} lines)"}'.format(line_count, line_count)
+            'pass': 'hergestellt' in text_lower or 'manufactured' in text_lower,
+            'message': 'Origin: ✓ Found' if 'hergestellt' in text_lower or 'manufactured' in text_lower else 'Origin: ✗ Missing'
         })
         
-        # Summary
+        checks.append({
+            'pass': '%' in text and 'vol' in text_lower,
+            'message': 'Alcohol: ✓ Found' if '%' in text and 'vol' in text_lower else 'Alcohol: ✗ Missing'
+        })
+        
+        checks.append({
+            'pass': 'ml' in text_lower or 'volume' in text_lower,
+            'message': 'Volume: ✓ Found' if 'ml' in text_lower or 'volume' in text_lower else 'Volume: ✗ Missing'
+        })
+        
+        checks.append({
+            'pass': 'importeur' in text_lower,
+            'message': 'Importer: ✓ Found' if 'importeur' in text_lower else 'Importer: ✗ Missing'
+        })
+        
+        checks.append({
+            'pass': 'sulfite' in text_lower or 'allergen' in text_lower,
+            'message': 'Allergens: ✓ Found' if 'sulfite' in text_lower or 'allergen' in text_lower else 'Allergens: ✗ Missing'
+        })
+        
+        checks.append({
+            'pass': '**' in text,
+            'message': 'Bold Formatting: ✓ Applied' if '**' in text else 'Bold Formatting: ✗ Not applied'
+        })
+        
         passed = sum(1 for c in checks if c['pass'])
         total = len(checks)
-        summary = f"Switzerland Compliance: {passed}/{total} checks passed"
         
         return jsonify({
             'checks': checks,
-            'summary': summary,
+            'summary': f'Switzerland: {passed}/{total} checks passed',
             'compliant': passed == total
         })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/validate-eu', methods=['POST'])
+def validate_eu():
+    """Validate EU compliance"""
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        checks = []
+        text_lower = text.lower()
+        
+        # Mandatory checks
+        checks.append({
+            'pass': 'product' in text_lower or 'beverage' in text_lower,
+            'message': 'Product Name: ✓ Found' if 'product' in text_lower or 'beverage' in text_lower else 'Product Name: ✗ Missing'
+        })
+        
+        checks.append({
+            'pass': 'manufactured' in text_lower,
+            'message': 'Origin: ✓ Found' if 'manufactured' in text_lower else 'Origin: ✗ Missing'
+        })
+        
+        checks.append({
+            'pass': '%' in text and 'vol' in text_lower,
+            'message': 'Alcohol: ✓ Found' if '%' in text and 'vol' in text_lower else 'Alcohol: ✗ Missing'
+        })
+        
+        checks.append({
+            'pass': 'ml' in text_lower or 'volume' in text_lower,
+            'message': 'Volume: ✓ Found' if 'ml' in text_lower or 'volume' in text_lower else 'Volume: ✗ Missing'
+        })
+        
+        checks.append({
+            'pass': 'importer' in text_lower,
+            'message': 'Importer: ✓ Found' if 'importer' in text_lower else 'Importer: ✗ Missing'
+        })
+        
+        checks.append({
+            'pass': 'sulfite' in text_lower or 'allergen' in text_lower,
+            'message': 'Allergens: ✓ Found' if 'sulfite' in text_lower or 'allergen' in text_lower else 'Allergens: ✗ Missing'
+        })
+        
+        checks.append({
+            'pass': '**' in text,
+            'message': 'Bold Formatting: ✓ Applied' if '**' in text else 'Bold Formatting: ✗ Not applied'
+        })
+        
+        passed = sum(1 for c in checks if c['pass'])
+        total = len(checks)
+        
+        return jsonify({
+            'checks': checks,
+            'summary': f'EU: {passed}/{total} checks passed',
+            'compliant': passed == total
+        })
+    
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
 @app.route('/api/fix-label', methods=['POST'])
 def fix_label():
+    """Auto-fix non-compliant label"""
     try:
         if not client:
-            return jsonify({'error': 'API not configured. Set ANTHROPIC_API_KEY environment variable.'}), 500
-            
-        data = request.json
+            return jsonify({'error': 'API not configured'}), 500
+        
+        data = request.get_json()
         text = data.get('text', '')
         market = data.get('market', 'switzerland')
         
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
         if market == 'switzerland':
-            prompt = f'''You are a Swiss beverage label compliance expert. 
-            
-The user provided this incomplete/non-compliant label:
-{text}
+            prompt = f'''You are a Swiss label expert. Fix this incomplete label to be 100% compliant with FSV requirements.
 
-Your task: Generate a COMPLETE, STICKER-READY, fully compliant Swiss label that includes ALL missing mandatory elements.
+Original: {text}
 
-MANDATORY ELEMENTS TO INCLUDE:
-- Product name and category (clear and prominent)
-- Origin: "Hergestellt in [Country]"
-- Alcohol content: "X% vol."
-- Complete ingredients list with sub-components
-- ALLERGENS IN CAPITALS AND BOLD (e.g., **SULFITE**)
-- Net volume: "XXXml"
-- Importer: Full Swiss address with postal code
-- Phone number
-- Storage/shelf life information
-- Batch/lot information
-- BOTH German AND French text
+Generate a COMPLETE, STICKER-READY label with:
+- Product name + category
+- Origin: "Hergestellt in..."
+- Alcohol: "X% vol."
+- Complete ingredients
+- **ALLERGENS IN CAPITALS AND BOLD**
+- Volume: "XXXml"
+- Importer with full Swiss address
+- Phone
+- Shelf life info
+- German AND French
 
-FORMATTING:
-- Compact, sticker-ready (fits 40x30mm)
-- NO extra blank lines
-- Use **text** for bold headers and allergens
-- One continuous flow, no unnecessary spacing
-
-Output ONLY the corrected label text, nothing else. Make it perfect and complete.'''
+Use **text** for bold. Make it compact, sticker-ready.
+Output ONLY the label, nothing else.'''
         else:
-            prompt = f'''You are an EU beverage label compliance expert (Regulation 1169/2011).
-            
-The user provided this incomplete/non-compliant label:
-{text}
+            prompt = f'''You are an EU label expert. Fix this incomplete label to be 100% compliant with 1169/2011.
 
-Your task: Generate a COMPLETE, STICKER-READY, fully compliant EU label that includes ALL missing mandatory elements.
+Original: {text}
 
-MANDATORY ELEMENTS TO INCLUDE:
-- Product name and category (clear and prominent)
-- Origin: "Manufactured in [Country]"
-- Alcohol content: "X% vol."
-- Complete ingredients list with sub-components
-- ALLERGENS IN CAPITALS AND BOLD (e.g., **SULFITE**)
-- Net volume: "XXXml"
-- Importer: Full address with postal code
-- Phone number
-- Nutrition information (or exemption note)
-- Storage/shelf life information
-- Batch/lot information
+Generate a COMPLETE, STICKER-READY label with:
+- Product name + category
+- Origin: "Manufactured in..."
+- Alcohol: "X% vol."
+- Complete ingredients
+- **ALLERGENS IN CAPITALS AND BOLD**
+- Volume: "XXXml"
+- Importer with full address
+- Phone
+- Shelf life info
 - English language
 
-FORMATTING:
-- Compact, sticker-ready (fits 40x30mm)
-- NO extra blank lines
-- Use **text** for bold headers and allergens
-- One continuous flow, no unnecessary spacing
-
-Output ONLY the corrected label text, nothing else. Make it perfect and complete.'''
+Use **text** for bold. Make it compact, sticker-ready.
+Output ONLY the label, nothing else.'''
         
         message = client.messages.create(
             model="claude-opus-4-5-20251101",
@@ -267,79 +314,14 @@ Output ONLY the corrected label text, nothing else. Make it perfect and complete
         
         output = message.content[0].text.strip()
         return jsonify({'output': output})
+    
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
-    try:
-        data = request.json
-        text = data.get('text', '')
-        
-        checks = []
-        
-        # Check for mandatory elements
-        mandatory = {
-            'Product Name': ['product', 'beverage', 'cider'],
-            'Origin': ['Manufactured', 'South Africa', 'origin'],
-            'Alcohol': ['%', 'vol'],
-            'Volume': ['ml', 'volume'],
-            'Importer': ['Importer', 'address'],
-            'Allergen Declaration': ['SULFITE', 'allergen'],
-            'Language': ['English', 'Ingredients'],
-        }
-        
-        text_lower = text.lower()
-        
-        for element, keywords in mandatory.items():
-            found = any(keyword.lower() in text_lower for keyword in keywords)
-            checks.append({
-                'pass': found,
-                'message': f'{element}: {"✓ Found" if found else "✗ Missing"}'
-            })
-        
-        # Check formatting
-        has_bold = '**' in text
-        checks.append({
-            'pass': has_bold,
-            'message': f'Bold Formatting: {"✓ Applied" if has_bold else "✗ Not applied"}'
-        })
-        
-        # Check line breaks
-        line_count = len(text.split('\n'))
-        compact = line_count <= 8
-        checks.append({
-            'pass': compact,
-            'message': f'Compact Format: {"✓ ({} lines)" if compact else "✗ ({} lines)"}'.format(line_count, line_count)
-        })
-        
-        # Summary
-        passed = sum(1 for c in checks if c['pass'])
-        total = len(checks)
-        summary = f"EU Compliance: {passed}/{total} checks passed"
-        
-        return jsonify({
-            'checks': checks,
-            'summary': summary,
-            'compliant': passed == total
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': f'Fix failed: {str(e)}'}), 400
+
+# ============================================================================
+# MAIN
+# ============================================================================
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    
-    print("\n" + "="*70)
-    print("Label Compliance Agent V3 - Production Server")
-    print("="*70)
-    
-    if not os.getenv('ANTHROPIC_API_KEY'):
-        print("\n⚠️  WARNING: ANTHROPIC_API_KEY not set!")
-        print("Set it in Render dashboard: Settings → Environment Variables")
-        print("Key: ANTHROPIC_API_KEY")
-        print("Value: sk-ant-...")
-    
-    print(f"\n✓ Server starting on port {port}")
-    print("✓ API configured")
-    print(f"✓ Open: https://your-render-url.onrender.com")
-    print("\nPress Ctrl+C to stop")
-    print("="*70 + "\n")
-    
     app.run(host='0.0.0.0', port=port, debug=False)
